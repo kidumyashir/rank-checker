@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>בודק מיקומים בגוגל</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f4f7; direction: rtl; padding: 20px; }
+        .container { max-width: 800px; background-color: #fff; margin: auto; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        .keyword-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        input[type=text], select, input[type=number] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .keyword { flex: 3; }
+        .keyword-volume { flex: 1; }
+        button { background-color: #008cba; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 15px; }
+        button:hover { background-color: #006f9a; }
+        .result { margin-top: 15px; padding: 10px; background-color: #e8f4fa; border-radius: 5px; }
+        .logo-container img { max-width: 200px; display: block; margin: 0 auto 20px auto; }
+        .google-logo { vertical-align: middle; width: 50px; height: auto; margin-right: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="logo-container">
+        <img src="https://kidumyashir.co.il/up/m/73883_original-logo-kidum-yashir.png" alt="לוגו האתר">
+    </div>
+
+    <h1>בודק מיקומים בגוגל</h1>
+
+    <label for="search-type">
+        בחר תצורת חיפוש:
+        <img src="https://kidumyashir.co.il/up/l/73883_Google_2015_logosvg.webp" alt="Google Logo" class="google-logo">
+    </label>
+    <select id="search-type">
+        <option value="desktop">🖥️ תצוגת מחשב</option>
+        <option value="mobile">📱 תצוגת מובייל</option>
+    </select>
+
+    <br><br>
+
+    <label for="existing-domains">בחר דומיין קיים:</label>
+    <select id="existing-domains" onchange="loadKeywords()">
+        <option value="">-- חדש --</option>
+    </select>
+
+    <label>או הוסף דומיין חדש:</label>
+    <input type="text" id="domain" placeholder="kidumyashir.co.il" style="width: 100%; margin-bottom: 15px;">
+
+    <div id="keywords-container">
+        <label>הזן ביטויים לחיפוש:</label>
+        <div class="keyword-row"><input type="text" class="keyword" placeholder="ביטוי 1"><input type="number" class="keyword-volume" placeholder="נפח חיפוש"></div>
+        <div class="keyword-row"><input type="text" class="keyword" placeholder="ביטוי 2"><input type="number" class="keyword-volume" placeholder="נפח חיפוש"></div>
+        <div class="keyword-row"><input type="text" class="keyword" placeholder="ביטוי 3"><input type="number" class="keyword-volume" placeholder="נפח חיפוש"></div>
+        <div class="keyword-row"><input type="text" class="keyword" placeholder="ביטוי 4"><input type="number" class="keyword-volume" placeholder="נפח חיפוש"></div>
+        <div class="keyword-row"><input type="text" class="keyword" placeholder="ביטוי 5"><input type="number" class="keyword-volume" placeholder="נפח חיפוש"></div>
+    </div>
+
+    <button onclick="submitCheck()">בדוק מיקומים</button>
+
+    <div id="results-container"></div>
+</div>
+
+<script>
+async function loadDomains() {
+    const res = await fetch('/domains');
+    const domains = await res.json();
+    const select = document.getElementById('existing-domains');
+    select.innerHTML = '<option value="">-- חדש --</option>';
+    domains.forEach(domain => {
+        const opt = document.createElement('option');
+        opt.value = domain;
+        opt.textContent = domain;
+        select.appendChild(opt);
+    });
+}
+
+async function loadKeywords() {
+    const selectedDomain = document.getElementById('existing-domains').value;
+    document.getElementById('domain').value = selectedDomain;
+    clearKeywordInputs();
+
+    if (selectedDomain) {
+        const res = await fetch(`/domains/${selectedDomain}`);
+        const keywords = await res.json();
+        const keywordInputs = document.getElementsByClassName('keyword');
+        for (let i = 0; i < keywordInputs.length; i++) {
+            keywordInputs[i].value = keywords[i] || '';
+        }
+    }
+}
+
+function clearKeywordInputs() {
+    const keywordInputs = document.getElementsByClassName('keyword');
+    for (let input of keywordInputs) {
+        input.value = '';
+    }
+}
+
+// פונקציית ניקוי הדומיין
+function normalizeDomain(domain) {
+    return domain
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/$/, '')
+        .trim();
+}
+
+async function submitCheck() {
+    const searchType = document.getElementById("search-type").value;
+    const domainInput = document.getElementById("domain").value.trim();
+    const domain = normalizeDomain(domainInput);  // ניקוי הדומיין לפני שליחה
+
+    const keywords = Array.from(document.getElementsByClassName('keyword')).map(input => input.value.trim());
+    const volumes = Array.from(document.getElementsByClassName('keyword-volume')).map(input => input.value.trim());
+
+    const filtered = keywords.map((kw, index) => ({ keyword: kw, volume: volumes[index] || "-" })).filter(item => item.keyword);
+    if (!domain || filtered.length === 0) {
+        alert("אנא מלא את כל השדות הנדרשים.");
+        return;
+    }
+
+    const response = await fetch('/check-rank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, keywords: filtered.map(item => item.keyword), searchType })
+    });
+
+    const results = await response.json();
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.innerHTML = results.map((result, index) => 
+        `<div class="result">ביטוי: <strong>${result.keyword}</strong><br>מיקום: <strong>${result.position}</strong><br>נפח חיפוש חודשי: <strong>${filtered[index].volume} חיפושים</strong></div>`
+    ).join('');
+
+    await loadDomains();
+}
+
+window.onload = loadDomains;
+</script>
+</body>
+</html>
