@@ -1,10 +1,17 @@
-
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 
-const app = express();
+const app = express();  // קודם כל יוצרים את השרת
+
+// כאן מוסיפים את ה-CORS בצורה נכונה:
+app.use(cors({
+  origin: 'https://eliasaf-co-il-202504211312.s276.upress.link'
+}));
+// אם תרצה לפתוח לגמרי - תוכל גם לכתוב רק: app.use(cors());
+
 const PORT = process.env.PORT || 3000;
 const SERP_API_KEY = 'f09191e9529ac5c8524214e0fe7f5a79dbf754f912330921b57829c6b2fc6ff5';
 
@@ -64,13 +71,11 @@ app.post('/check-rank', async (req, res) => {
     }
 });
 
-// Endpoint to retrieve stored domains
 app.get('/domains', (req, res) => {
     const domainsData = loadDomains();
     res.json(Object.keys(domainsData));
 });
 
-// Endpoint to retrieve keywords for a domain
 app.get('/domains/:domain', (req, res) => {
     const domainsData = loadDomains();
     const domain = req.params.domain;
