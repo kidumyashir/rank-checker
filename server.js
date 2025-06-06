@@ -6,27 +6,29 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SERP_API_KEY = process.env.SERP_API_KEY;  // ניקח את המפתח מתוך Environment Variable
+const SERP_API_KEY = process.env.SERP_API_KEY || 'f09191e9529ac5c8524214e0fe7f5a79dbf754f912330921b57829c6b2fc6ff5';
 
-app.use(cors()); // נפתח CORS לכולם בצורה פשוטה (מתאים ל-Render)
+// כאן מגיע תיקון ה-CORS שיפתור לך את הבעיה:
+app.use(cors({
+  origin: '*'
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// מיקום הקובץ שבו מאחסנים את הדומיינים והביטויים
 const domainsFilePath = path.join(__dirname, 'domains.json');
 
-// פונקציה לקריאת הקובץ
+// Load domains from file
 const loadDomains = () => {
-    if (!fs.existsSync(domainsFilePath)) return {};
+    if (!fs.existsSync(domainsFilePath)) {
+        fs.writeFileSync(domainsFilePath, JSON.stringify({}));
+    }
     return JSON.parse(fs.readFileSync(domainsFilePath, 'utf8'));
 };
 
-// פונקציה לשמירת הקובץ
-const saveDomains = (domains) => {
-    fs.writeFileSync(domainsFilePath, JSON.stringify(domains, null, 2));
-};
+// Save domains to file
+const saveDomains = (domains) => fs.writeFileSync(domainsFilePath, JSON.stringify(domains, null, 2));
 
-// הנתיב הראשי שמבצע את הבדיקות ל-SerpAPI
 app.post('/check-rank', async (req, res) => {
     const { domain, keywords, searchType } = req.body;
 
@@ -72,20 +74,17 @@ app.post('/check-rank', async (req, res) => {
     }
 });
 
-// API שמחזיר את רשימת הדומיינים השמורים
 app.get('/domains', (req, res) => {
     const domainsData = loadDomains();
     res.json(Object.keys(domainsData));
 });
 
-// API שמחזיר את מילות המפתח לפי דומיין
 app.get('/domains/:domain', (req, res) => {
     const domainsData = loadDomains();
     const domain = req.params.domain;
     res.json(domainsData[domain] || []);
 });
 
-// הרצת השרת
 app.listen(PORT, () => {
     console.log(`🔥 השרת המשודרג רץ על פורט ${PORT}`);
 });
